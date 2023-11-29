@@ -1,0 +1,273 @@
+{
+  "name": "jborean-ansibug",
+  "displayName": "jborean.ansibug",
+  "description": "Ansible Playbook Debugger",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.63.0"
+  },
+  "categories": [
+    "Debuggers"
+  ],
+  "activationEvents": [
+    "onCommand:ansibug.pickAnsiblePlaybook",
+    "onCommand:ansibug.pickAnsibleProcess",
+    "onDebug",
+    "onLanguage:ansible",
+    "onLanguage:yaml"
+  ],
+  "bugs": "https://github.com/jborean93/vscode-ansibug/issues",
+  "main": "./out/extension.js",
+  "contributes": {
+    "breakpoints": [
+      {
+        "language": "ansible"
+      },
+      {
+        "language": "yaml"
+      }
+    ],
+    "configuration": [
+      {
+        "title": "Ansibug",
+        "properties": {
+          "ansibug.interpreterPath": {
+            "scope": "machine-overridable",
+            "type": "string",
+            "default": null,
+            "markdownDescription": "Path to the Python interpreter executable. Particularly important if you are using a Python virtual environment. Leave blank to use Python from PATH.",
+            "order": 0
+          },
+          "ansibug.logFile": {
+            "type": "string",
+            "default": "",
+            "markdownDescription": "Set to enable debug server logging to the path set.",
+            "order": 1
+          },
+          "ansibug.logLevel": {
+            "type": "string",
+            "default": "info",
+            "enum": [
+              "info",
+              "debug",
+              "warning",
+              "error"
+            ],
+            "markdownDescription": "The logging level to configure for the debug server.",
+            "order": 2
+          }
+        }
+      }
+    ],
+    "debuggers": [
+      {
+        "type": "ansible",
+        "label": "Ansible Debug",
+        "languages": [
+          "ansible",
+          "yaml"
+        ],
+        "variables": {
+          "PickAnsiblePlaybook": "ansibug.pickAnsiblePlaybook",
+          "PickAnsibleProcess": "ansibug.pickAnsibleProcess"
+        },
+        "configurationAttributes": {
+          "attach": {
+            "properties": {
+              "processId": {
+                "type": [
+                  "string",
+                  "number"
+                ],
+                "description": "The process id of the ansible-playbook process to attach to.",
+                "default": "${command:PickAnsibleProcess}"
+              },
+              "address": {
+                "type": "string",
+                "description": "The host that is running the ansible-playbook process with the scheme tcp:// or uds://.",
+                "default": "tcp://remote-host:1234"
+              },
+              "useTLS": {
+                "type": "boolean",
+                "description": "Wrap the communication socket with TLS to add server verification and encryption to the connection.",
+                "default": false
+              },
+              "tlsVerification": {
+                "type": "string",
+                "description": "The TLS verification settings, defaults to verify but can be set to ignore to ignore the verification checks. Can also be set to the path of a file or directory to use as the CA trust store.",
+                "default": "verify"
+              },
+              "tlsCertificate": {
+                "type": "string",
+                "description": "",
+                "default": "The path to a PEM encoded certificate, and optional key, to use for client certificate authentication with TLS. Use tlsKey if the path does not contain the key."
+              },
+              "tlsKey": {
+                "type": "string",
+                "description": "",
+                "default": "The path to a PEM encoded key for the certificate used for client certificate authentication with TLS. If encrypted use tlsKeyPassword to supply the password."
+              },
+              "tlsKeyPassword": {
+                "type": "string",
+                "description": "",
+                "default": "The password for the client certificate key if it is encrypted."
+              },
+              "connectTimeout": {
+                "type": "float",
+                "description": "The timeout, in seconds, to wait when trying to attach to the ansible-playbook process.",
+                "default": 5
+              },
+              "pathMappings": {
+                "$id": "#pathMappings",
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "description": "The remote path prefix the Ansible playbook is running under and the local path prefix it maps to.",
+                  "properties": {
+                    "localRoot": {
+                      "type": "string",
+                      "description": "The local path root prefix this mapping applies to.",
+                      "default": "${workspaceFolder}/"
+                    },
+                    "remoteRoot": {
+                      "type": "string",
+                      "description": "The remote path root prefix this mapping applied to.",
+                      "default": ""
+                    }
+                  },
+                  "required": [
+                    "localRoot",
+                    "remoteRoot"
+                  ]
+                },
+                "description": "A list of case sensitive path mappings between a local and remote path. Multiple paths can be defined as needed.",
+                "default": []
+              }
+            }
+          },
+          "launch": {
+            "properties": {
+              "playbook": {
+                "type": "string",
+                "description": "The path to the Ansible playbook to launch.",
+                "default": "${command:PickAnsiblePlaybook}"
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Command line arguments to pass to the ansible-playbook call, excluding the playbook itself.",
+                "default": []
+              },
+              "console": {
+                "type": "string",
+                "description": "Where to launch the debug target.",
+                "default": "integratedTerminal",
+                "enum": [
+                  "integratedTerminal",
+                  "externalTerminal"
+                ]
+              },
+              "cwd": {
+                "type": "string",
+                "description": "Absolute path to the working directory of the new ansible-playbook process that is spawned.",
+                "default": "${workspaceFolder}"
+              },
+              "connectTimeout": {
+                "type": "float",
+                "description": "The timeout, in seconds, to wait for the new ansible-playbook process to connect back to the debug client before failing.",
+                "default": 5
+              },
+              "logFile": {
+                "type": "string",
+                "description": "The path to a file to log the ansibug debuggee logging entries to. Use logLevel to control the verbosity of these logs."
+              },
+              "logLevel": {
+                "type": "string",
+                "description": "The level of logging to enable on the ansibug debuggee run. This is only enabled if logFile is also set.",
+                "default": "info",
+                "enum": [
+                  "info",
+                  "debug",
+                  "warning",
+                  "error"
+                ]
+              },
+              "pathMappings": {
+                "$ref": "#pathMappings"
+              }
+            },
+            "required": [
+              "playbook"
+            ]
+          }
+        },
+        "configurationSnippets": [
+          {
+            "label": "Ansibug: Launch new ansible-playbook Process",
+            "description": "Launch a new ansible-playbook process",
+            "body": {
+              "name": "Ansibug: Launch ansible-playbook Process",
+              "type": "ansible",
+              "request": "launch",
+              "playbook": "^\"\\${command:PickAnsiblePlaybook}\""
+            }
+          },
+          {
+            "label": "Ansibug: Launch Current File",
+            "description": "Launch and debug the file in the currently active editor window",
+            "body": {
+              "name": "Ansibug: Launch Current File",
+              "type": "ansible",
+              "request": "launch",
+              "playbook": "^\"\\${file}\"",
+              "cwd": "^\"\\${cwd}\""
+            }
+          },
+          {
+            "label": "Ansibug: Attach to local ansible-playbook Process",
+            "description": "Attach the debugger to a locally running ansible-playbook process",
+            "body": {
+              "name": "Ansibug: Attach to local ansible-playbook Process",
+              "type": "ansible",
+              "request": "attach",
+              "processId": "^\"\\${command:PickAnsibleProcess}\""
+            }
+          },
+          {
+            "label": "Ansibug: Attach to remote ansible-playbook Process",
+            "description": "Attach the debugger to a remote ansible-playbook process",
+            "body": {
+              "name": "Ansibug: Attach to remote ansible-playbook Process",
+              "type": "ansible",
+              "request": "attach",
+              "address": "tcp://target-host:1234"
+            }
+          }
+        ],
+        "initialConfigurations": []
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.63.0",
+    "@types/mocha": "^10.0.3",
+    "@types/node": "18.x",
+    "@typescript-eslint/eslint-plugin": "^6.9.0",
+    "@typescript-eslint/parser": "^6.9.0",
+    "eslint": "^8.52.0",
+    "glob": "^10.3.10",
+    "mocha": "^10.2.0",
+    "typescript": "^5.2.2",
+    "@vscode/test-electron": "^2.3.6"
+  }
+}
