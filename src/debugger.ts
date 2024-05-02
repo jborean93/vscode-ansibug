@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import * as child_process from "child_process";
 import * as glob from "glob";
 import * as fs from "fs";
 import * as path from "path";
@@ -119,7 +120,7 @@ export class AnsibleDebugConfigurationProvider
  * @param settings - The extension settings.
  * @returns The debug adapter executable.
  */
-export function createAnsibleDebugAdapter(): vscode.DebugAdapterExecutable {
+export async function createAnsibleDebugAdapter(): Promise<vscode.DebugAdapterDescriptor> {
     const config = vscode.workspace.getConfiguration("ansibug");
 
     const ansibugArgs = ["dap"];
@@ -143,9 +144,63 @@ export function createAnsibleDebugAdapter(): vscode.DebugAdapterExecutable {
     const dapOptions: vscode.DebugAdapterExecutableOptions = {
         env: newEnv,
     };
+
+    // DebugAdapterExecutable does not have a way to retrieve stderr when
+    // failing to start. We do a quick test to ensure that ansibug is
+    // available and can import using the same environment as the DAP.
+    const [testOut, testRC] = await executeCommand(
+        command,
+        ["-m", "ansibug", "--help"],
+        newEnv);
+    if (testRC !== 0) {
+        throw new Error(`Failed to start ansibug, process exited with ${testRC}: ${testOut}`);
+    }
+
     return new vscode.DebugAdapterExecutable(command, commandArgs, dapOptions);
+}
 
+/**
+ * Runs a command and returns the output and rc.
+ * @param command - The command to run.
+ * @param commandArgs - Arguments to provide to the command.
+ * @param env - The environment to run the process with.
+ * @returns The command output and return code.
+ */
+function executeCommand(
+    command: string,
+    commandArgs: string[],
+    env: { [key: string]: string },
+): Promise<[string, number]> {
+    return new Promise((resolve, _) => {
+        const proc = child_process.spawn(command, commandArgs, {
+            env: env,
+            shell: false,
+            stdio: "pipe",
+            windowsHide: true,
+        });
 
+        var procOut = "";
+        proc.stdout.setEncoding('utf8');
+        proc.stdout.on('data', (data) => {
+            procOut += data.toString();
+        });
+
+        proc.stderr.setEncoding('utf8');
+        proc.stderr.on('data', (data) => {
+            procOut += data.toString();
+        });
+
+        proc.on('error', (error) => {
+            var rc = -1;
+            if ('errno' in error) {
+                rc = error.errno as number;
+            }
+            resolve([error.message, rc]);
+        });
+        proc.on('close', (rc) => {
+            resolve([procOut, rc ?? 0]);
+        });
+    });
 }
 
 /**
