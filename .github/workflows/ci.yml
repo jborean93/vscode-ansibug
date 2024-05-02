@@ -31,21 +31,21 @@ jobs:
       run: npm i -g vsce
 
     - name: build vsix
-      run: vsce package
+      run: vsce package --out ansibug.vsix
 
     - uses: actions/upload-artifact@v4
       with:
         name: vsix
-        path: ansibug-*.vsix
+        path: ansibug.vsix
 
     - name: Upload vsix as release asset
       if: startsWith(github.event.release.tag_name, 'v')
       uses: softprops/action-gh-release@v2
       with:
-        files: ansibug-*.vsix
+        files: ansibug.vsix
 
     - name: Publish
       if: startsWith(github.event.release.tag_name, 'v')
-      run: vsce publish --packagePath ./ansibug-*.vsix
+      run: vsce publish --packagePath ./ansibug.vsix
       env:
         VSCE_PAT: ${{ secrets.VSCODE_MARKETPLACE_TOKEN }}

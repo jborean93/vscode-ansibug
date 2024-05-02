@@ -8,3 +8,4 @@ out/
 tsconfig.lsif.json
 *.lsif
 *.db
+ansibug-*.vsix
