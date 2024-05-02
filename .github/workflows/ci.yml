@@ -17,6 +17,9 @@ jobs:
     name: build extension
 
     runs-on: ubuntu-latest
+    permissions:
+      contents: write  # Needed for GitHub release asset task
+
     steps:
     - uses: actions/checkout@v4
 
@@ -28,7 +31,7 @@ jobs:
       run: npm i
 
     - name: Install vsce
-      run: npm i -g vsce
+      run: npm i -g @vscode/vsce
 
     - name: build vsix
       run: vsce package --out ansibug.vsix
