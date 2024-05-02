@@ -1,0 +1,48 @@
+name: Build ansibug
+on:
+  push:
+    branches:
+    - main
+
+  pull_request:
+    branches:
+    - main
+
+  release:
+    types:
+    - published
+
+jobs:
+  build:
+    name: build extension
+
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 18
+
+    - name: Install vsce
+      run: npm i -g vsce
+
+    - name: build vsix
+      run: vsce package
+
+    - uses: actions/upload-artifact@v4
+      with:
+        name: vsix
+        path: ansibug-*.vsix
+
+    - name: Upload vsix as release asset
+      if: startsWith(github.event.release.tag_name, 'v')
+      uses: softprops/action-gh-release@v2
+      with:
+        files: ansibug-*.vsix
+
+    - name: Publish
+      if: startsWith(github.event.release.tag_name, 'v')
+      run: vsce publish --packagePath ./ansibug-*.vsix
+      env:
+        VSCE_PAT: ${{ secrets.VSCODE_MARKETPLACE_TOKEN }}
