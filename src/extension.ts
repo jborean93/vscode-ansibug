@@ -15,8 +15,8 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.debug.registerDebugAdapterDescriptorFactory(
             "ansible",
             {
-                createDebugAdapterDescriptor: () => {
-                    return createAnsibleDebugAdapter();
+                createDebugAdapterDescriptor: async () => {
+                    return await createAnsibleDebugAdapter();
                 },
             }
         )

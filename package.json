@@ -1,6 +1,6 @@
 {
   "name": "ansibug",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "publisher": "jborean",
   "engines": {
     "vscode": "^1.63.0"
@@ -44,7 +44,6 @@
         "title": "Ansibug",
         "properties": {
           "ansibug.interpreterPath": {
-            "scope": "machine-overridable",
             "type": "string",
             "default": null,
             "markdownDescription": "Path to the Python interpreter executable. Particularly important if you are using a Python virtual environment. Leave blank to use Python from PATH.",
