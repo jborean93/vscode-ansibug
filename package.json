@@ -1,14 +1,27 @@
 {
-  "name": "jborean-ansibug",
-  "displayName": "jborean.ansibug",
-  "description": "Ansible Playbook Debugger",
-  "version": "0.0.1",
+  "name": "ansibug",
+  "version": "0.1.0",
+  "publisher": "jborean",
   "engines": {
     "vscode": "^1.63.0"
   },
+  "displayName": "ansibug",
+  "description": "Ansible Playbook Debugger",
   "categories": [
     "Debuggers"
   ],
+  "keywords": [
+    "ansible",
+    "ansibug",
+    "debugger"
+  ],
+  "icon": "images/icon.png",
+  "license": "MIT",
+  "bugs": "https://github.com/jborean93/vscode-ansibug/issues",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jborean93/vscode-ansibug.git"
+  },
   "activationEvents": [
     "onCommand:ansibug.pickAnsiblePlaybook",
     "onCommand:ansibug.pickAnsibleProcess",
@@ -16,7 +29,6 @@
     "onLanguage:ansible",
     "onLanguage:yaml"
   ],
-  "bugs": "https://github.com/jborean93/vscode-ansibug/issues",
   "main": "./out/extension.js",
   "contributes": {
     "breakpoints": [

@@ -94,8 +94,8 @@ export class AnsibleDebugConfigurationProvider
             // Both ansible and yaml is used in case the file hasn't been explicitly
             // marked as ansible and is just yaml.
             if (
-                (editor && editor.document.languageId === "ansible") ||
-                editor?.document.languageId === "yaml"
+                editor?.document?.languageId === "ansible" ||
+                editor?.document?.languageId === "yaml"
             ) {
                 config = {
                     request: "launch",

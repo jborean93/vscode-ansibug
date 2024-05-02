@@ -1,71 +1,29 @@
-# jborean-ansibug README
-
-This is the README for your extension "jborean-ansibug". After writing up a brief description, we recommend including the following sections.
+# VSCode Extension for Debugging Ansible Playbooks
+This extension add debugging support for Ansible playbooks to Visual Studio Code.
+This extension has no official affiliation or endorsement with Ansible and Red Hat and is a community project.
 
 ## Features
+Debugging support comes from the [ansibug](https://pypi.org/project/ansibug/) Python module.
+It can set breakpoints through Ansible playbook and task files and step through the tasks inside that file like a normal debugger.
 
-Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
+![](images/set_breakpoint.gif)
 
-For example if there is an image subfolder under your extension project workspace:
-
-\!\[feature X\]\(images/feature-x.png\)
-
-> Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow.
+See the [ansibug documentation](https://ansible-community.github.io/ansibug/) for more information on how this works with Ansible.
 
 ## Requirements
+The following Python requirements must be met before using this extension:
 
-If you have any requirements or dependencies, add a section describing those and how to install and configure them.
++ [ansibug](https://github.com/ansible-community/ansibug)
++ `Ansible` must also be installed for `ansibug` to interact with
+
+For Windows users, this extension can be used with remote extensions like `Remote -WSL`, `Remote - SSH`, and `Remove - Containers`.
+This extension can run alongside the official [vscode-ansible](https://github.com/ansible/vscode-ansible) extension.
 
 ## Extension Settings
-
-Include if your extension adds any VS Code settings through the `contributes.configuration` extension point.
-
-For example:
-
 This extension contributes the following settings:
 
-* `myExtension.enable`: Enable/disable this extension.
-* `myExtension.thing`: Set to `blah` to do something.
++ `ansibug.interpreterPath`: Path to the `python`/`python3` executable where Ansible and `ansibug` is installed
++ `ansibug.logFile`: Path to a log file to store any logging information during a run
++ `ansibug.logLevel`: The logging level to configure for the debug server
 
-## Known Issues
-
-Calling out known issues can help limit users opening duplicate issues against your extension.
-
-## Release Notes
-
-Users appreciate release notes as you update your extension.
-
-### 1.0.0
-
-Initial release of ...
-
-### 1.0.1
-
-Fixed issue #.
-
-### 1.1.0
-
-Added features X, Y, and Z.
-
----
-
-## Following extension guidelines
-
-Ensure that you've read through the extensions guidelines and follow the best practices for creating your extension.
-
-* [Extension Guidelines](https://code.visualstudio.com/api/references/extension-guidelines)
-
-## Working with Markdown
-
-You can author your README using Visual Studio Code. Here are some useful editor keyboard shortcuts:
-
-* Split the editor (`Cmd+\` on macOS or `Ctrl+\` on Windows and Linux).
-* Toggle preview (`Shift+Cmd+V` on macOS or `Shift+Ctrl+V` on Windows and Linux).
-* Press `Ctrl+Space` (Windows, Linux, macOS) to see a list of Markdown snippets.
-
-## For more information
-
-* [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
-* [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
-
-**Enjoy!**
+This extension will also use the setting `ansible.python.interpreterPath` set by the official `vscode-ansible` extension as a fallback value for `ansibug.interpreterPath`.
