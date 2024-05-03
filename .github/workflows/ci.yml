@@ -31,7 +31,7 @@ jobs:
       run: npm i
 
     - name: Install vsce
-      run: npm i -g @vscode/vsce
+      run: npm i -g @vscode/vsce ovsx
 
     - name: build vsix
       run: vsce package --out ansibug.vsix
@@ -47,7 +47,13 @@ jobs:
       with:
         files: ansibug.vsix
 
-    - name: Publish
+    - name: Publish to OpenVSX Registry
+      if: startsWith(github.event.release.tag_name, 'v')
+      run: ovsx publish /ansibug.vsix
+      env:
+        OVSX_PAT: ${{ secrets.OPEN_VSX_TOKEN }}
+
+    - name: Publish to VSCode Marketplace
       if: startsWith(github.event.release.tag_name, 'v')
       run: vsce publish --packagePath ./ansibug.vsix
       env:
