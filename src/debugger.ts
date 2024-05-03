@@ -135,7 +135,7 @@ export async function createAnsibleDebugAdapter(): Promise<vscode.DebugAdapterDe
         );
     }
 
-    const [command, commandArgs, newEnv] = withPythonModule(
+    const [command, commandArgs, newEnv] = await withPythonModule(
         config,
         "ansibug",
         ansibugArgs
@@ -210,12 +210,12 @@ function executeCommand(
  * @param moduleArgs - The arguments to invoke with the module.
  * @returns The executable, arguments, and environment variables to run.
  */
-function withPythonModule(
+async function withPythonModule(
     config: vscode.WorkspaceConfiguration,
     module: string,
     moduleArgs: string[]
-): [string, string[], { [key: string]: string }] {
-    let command: string = "python";
+): Promise<[string, string[], { [key: string]: string }]> {
+    // let command: string = "python4";
 
     let commandArgs: string[] = ["-m", module];
     commandArgs.push(...moduleArgs);
@@ -232,18 +232,59 @@ function withPythonModule(
     // Also looks up the interpreterPath in the Ansible extension for ease of use.
     const ansibleConfig = vscode.workspace.getConfiguration("ansible.python");
 
+    let command = undefined;
     const interpreterPath = config.get(
         "interpreterPath", null
     ) ?? ansibleConfig.get("interpreterPath", null);
     if (interpreterPath) {
+        command = interpreterPath;
         const virtualEnv = path.resolve(interpreterPath, "../..");
-        const pathEntry = path.join(virtualEnv, "bin");
+        const pathEntry = path.dirname(interpreterPath);
 
         newEnv.VIRTUAL_ENV = virtualEnv;
         newEnv.PATH = `${pathEntry}${path.delimiter}${process.env.PATH}`;
         delete newEnv.PYTHONHOME;
     }
+    else {
+        for (const pythonCandidate of ["python3", "python"]) {
+            if (await isInPath(pythonCandidate, newEnv.PATH)) {
+                command = pythonCandidate;
+                break;
+            }
+        }
+
+        if (command == undefined) {
+            throw new Error("Failed to find Python interpreter in PATH to run ansibug");
+        }
+    }
 
     return [command, commandArgs, newEnv];
 
+}
+
+/**
+ * Checks if the executable specified is in the PATH provided.
+ * @param executable: The executable to check for.
+ * @param envPath: The PATH env value to check.
+ * @returns Whether the executable is in the PATH or not.
+ */
+async function isInPath(
+    executable: string,
+    envPath: string,
+): Promise<boolean> {
+    const pathSplit = envPath.split(path.delimiter) || [];
+    for (const pathDir of pathSplit) {
+        const testPath = path.join(pathDir, executable);
+
+        try {
+            const fsStat = await fs.promises.stat(testPath);
+            if (fsStat.isFile()) {
+                return true;
+            }
+        }
+        catch (e) {
+            continue;
+        }
+    }
+    return false;
 }
