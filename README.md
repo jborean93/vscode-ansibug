@@ -8,12 +8,12 @@ It can set breakpoints through Ansible playbook and task files and step through 
 
 ![](images/set_breakpoint.gif)
 
-See the [ansibug documentation](https://ansible-community.github.io/ansibug/) for more information on how this works with Ansible.
+See the [ansibug documentation](https://jborean93.github.io/ansibug/) for more information on how this works with Ansible.
 
 ## Requirements
 The following Python requirements must be met before using this extension:
 
-+ [ansibug](https://github.com/ansible-community/ansibug)
++ [ansibug](https://github.com/jborean93/ansibug)
 + `Ansible` must also be installed for `ansibug` to interact with
 
 For Windows users, this extension can be used with remote extensions like `Remote -WSL`, `Remote - SSH`, and `Remove - Containers`.
