@@ -1,6 +1,6 @@
 {
   "name": "ansibug",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "publisher": "jborean",
   "engines": {
     "vscode": "^1.63.0"
@@ -66,6 +66,12 @@
             ],
             "markdownDescription": "The logging level to configure for the debug server.",
             "order": 2
+          },
+          "ansibug.tempDir": {
+            "type": "string",
+            "default": null,
+            "markdownDescription": "Path to a directory to store temporary files like the launch script for each playbook. This directory must be writable and not have NOEXEC to work. Leave blank to use the system temporary directory.",
+            "order": 3
           }
         }
       }
@@ -190,6 +196,11 @@
                 "description": "The timeout, in seconds, to wait for the new ansible-playbook process to connect back to the debug client before failing.",
                 "default": 5
               },
+              "env": {
+                "type": "object",
+                "description": "Environment variables to set when launching the ansible-playbook process.",
+                "default": {}
+              },
               "logFile": {
                 "type": "string",
                 "description": "The path to a file to log the ansibug debuggee logging entries to. Use logLevel to control the verbosity of these logs."
@@ -274,7 +285,7 @@
     "@typescript-eslint/eslint-plugin": "^6.9.0",
     "@typescript-eslint/parser": "^6.9.0",
     "@vscode/test-electron": "^2.3.6",
-    "esbuild": "^0.20.2",
+    "esbuild": "^0.25.0",
     "eslint": "^8.52.0",
     "glob": "^10.3.10",
     "mocha": "^10.2.0",
