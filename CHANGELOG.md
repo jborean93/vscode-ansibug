@@ -2,7 +2,7 @@
 
 All notable changes to the "ansibug" extension will be documented in this file.
 
-## 0.2.0 - TBD
+## 0.2.0 - 2025-02-24
 
 + Added the extension option `ansibug.tempDir` to control the temporary directory used to store the Ansible launch script
 + Document the `env` option in a launch configuration for specifying environment variables
