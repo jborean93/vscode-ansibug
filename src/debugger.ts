@@ -1,8 +1,14 @@
 import * as vscode from "vscode";
-import * as child_process from "child_process";
 import * as glob from "glob";
 import * as fs from "fs";
 import * as path from "path";
+import {
+    Candidate,
+    Env,
+    expandInterpreterPath,
+    findVenvPythons,
+    resolvePython,
+} from "./python";
 
 export class DebuggerCommands {
     public static readonly PICK_ANSIBLE_PLAYBOOK =
@@ -117,10 +123,15 @@ export class AnsibleDebugConfigurationProvider
 
 /**
  * Creates the debug adapter executable for debugging.
- * @param settings - The extension settings.
+ * @param session - The debug session being started.
+ * @param log - The channel to log the interpreter lookup to.
  * @returns The debug adapter executable.
  */
-export async function createAnsibleDebugAdapter(): Promise<vscode.DebugAdapterDescriptor> {
+export async function createAnsibleDebugAdapter(
+    session: vscode.DebugSession,
+    log: vscode.LogOutputChannel,
+): Promise<vscode.DebugAdapterDescriptor> {
+    const folder = session.workspaceFolder;
     const config = vscode.workspace.getConfiguration("ansibug");
 
     const ansibugArgs = ["dap"];
@@ -135,156 +146,86 @@ export async function createAnsibleDebugAdapter(): Promise<vscode.DebugAdapterDe
         );
     }
 
-    const [command, commandArgs, newEnv] = await withPythonModule(
-        config,
-        "ansibug",
-        ansibugArgs
-    );
-
-    const dapOptions: vscode.DebugAdapterExecutableOptions = {
-        env: newEnv,
-    };
-
-    // DebugAdapterExecutable does not have a way to retrieve stderr when
-    // failing to start. We do a quick test to ensure that ansibug is
-    // available and can import using the same environment as the DAP.
-    const [testOut, testRC] = await executeCommand(
-        command,
-        ["-m", "ansibug", "--help"],
-        newEnv);
-    if (testRC !== 0) {
-        throw new Error(`Failed to start ansibug, process exited with ${testRC}: ${testOut}`);
-    }
-
-    return new vscode.DebugAdapterExecutable(command, commandArgs, dapOptions);
-}
-
-/**
- * Runs a command and returns the output and rc.
- * @param command - The command to run.
- * @param commandArgs - Arguments to provide to the command.
- * @param env - The environment to run the process with.
- * @returns The command output and return code.
- */
-function executeCommand(
-    command: string,
-    commandArgs: string[],
-    env: { [key: string]: string },
-): Promise<[string, number]> {
-    return new Promise((resolve, _) => {
-        const proc = child_process.spawn(command, commandArgs, {
-            env: env,
-            shell: false,
-            stdio: "pipe",
-            windowsHide: true,
-        });
-
-        var procOut = "";
-        proc.stdout.setEncoding('utf8');
-        proc.stdout.on('data', (data) => {
-            procOut += data.toString();
-        });
-
-        proc.stderr.setEncoding('utf8');
-        proc.stderr.on('data', (data) => {
-            procOut += data.toString();
-        });
-
-        proc.on('error', (error) => {
-            var rc = -1;
-            if ('errno' in error) {
-                rc = error.errno as number;
-            }
-            resolve([error.message, rc]);
-        });
-        proc.on('close', (rc) => {
-            resolve([procOut, rc ?? 0]);
-        });
-    });
-}
-
-/**
- * Builds the command, args, and env vars needed to run a Python module.
- * @param config - The extension configuration.
- * @param module - The python module to invoke.
- * @param moduleArgs - The arguments to invoke with the module.
- * @returns The executable, arguments, and environment variables to run.
- */
-async function withPythonModule(
-    config: vscode.WorkspaceConfiguration,
-    module: string,
-    moduleArgs: string[]
-): Promise<[string, string[], { [key: string]: string }]> {
-    // let command: string = "python4";
-
-    let commandArgs: string[] = ["-m", module];
-    commandArgs.push(...moduleArgs);
-
-    const newEnv: { [key: string]: string } = {
+    const baseEnv: Env = {
         NO_COLOR: "0",
         ANSIBLE_FORCE_COLOR: "0",
         PYTHONBREAKPOINT: "0",
     };
     for (const e in process.env) {
-        newEnv[e] = process.env[e] ?? "";
+        baseEnv[e] = process.env[e] ?? "";
     }
 
+    const folderPath = folder?.uri.fsPath;
+    const candidates: Candidate[] = [];
     // Also looks up the interpreterPath in the Ansible extension for ease of use.
-    const ansibleConfig = vscode.workspace.getConfiguration("ansible.python");
-
-    let command = undefined;
-    const interpreterPath = config.get(
-        "interpreterPath", null
-    ) ?? ansibleConfig.get("interpreterPath", null);
-    if (interpreterPath) {
-        command = interpreterPath;
-        const virtualEnv = path.resolve(interpreterPath, "../..");
-        const pathEntry = path.dirname(interpreterPath);
-
-        newEnv.VIRTUAL_ENV = virtualEnv;
-        newEnv.PATH = `${pathEntry}${path.delimiter}${process.env.PATH}`;
-        delete newEnv.PYTHONHOME;
-    }
-    else {
-        for (const pythonCandidate of ["python3", "python"]) {
-            if (await isInPath(pythonCandidate, newEnv.PATH)) {
-                command = pythonCandidate;
-                break;
-            }
-        }
-
-        if (command == undefined) {
-            throw new Error("Failed to find Python interpreter in PATH to run ansibug");
+    for (const [section, key] of [["ansibug", "interpreterPath"], ["ansible.python", "interpreterPath"]]) {
+        const value = vscode.workspace.getConfiguration(section, folder).get<string>(key);
+        if (value) {
+            candidates.push({
+                source: `${section}.${key}`,
+                python: expandInterpreterPath(value, folderPath),
+            });
+            break;
         }
     }
+    const explicit = candidates.length > 0;
+    log.info(`Looking for a Python interpreter with ansibug${folderPath ? ` for ${folderPath}` : ""}`);
+    if (!explicit) {
+        // We try and find a suitable Python interpreter from the Python extensions if present, before
+        // falling back to .venv, venv, and the system PATH.
+        candidates.push(...await getExtensionInterpreter(
+            "ms-python.vscode-python-envs", "Python Environments extension", log,
+            async (api) => (await api?.getEnvironment?.(folder?.uri))?.execInfo?.run?.executable));
+        candidates.push(...await getExtensionInterpreter(
+            "ms-python.python", "Python extension", log,
+            async (api) => api?.environments?.getActiveEnvironmentPath?.(folder?.uri)?.path));
+        for (const python of folderPath ? findVenvPythons(folderPath) : []) {
+            candidates.push({ source: path.basename(path.dirname(path.dirname(python))), python });
+        }
+        candidates.push({ source: "PATH", python: "python3" }, { source: "PATH", python: "python" });
+    }
 
-    return [command, commandArgs, newEnv];
+    // DebugAdapterExecutable does not have a way to retrieve stderr when
+    // failing to start, resolvePython tests ansibug can run first.
+    const [command, env] = await resolvePython(
+        candidates, explicit, baseEnv, folderPath, (m) => log.info(m));
 
+    return new vscode.DebugAdapterExecutable(
+        command,
+        ["-m", "ansibug", ...ansibugArgs],
+        { env: env }
+    );
 }
 
 /**
- * Checks if the executable specified is in the PATH provided.
- * @param executable: The executable to check for.
- * @param envPath: The PATH env value to check.
- * @returns Whether the executable is in the PATH or not.
+ * Gets the selected interpreter from a Python extension's API, activating the
+ * extension if it is installed but not loaded yet.
+ * @param id - The extension id.
+ * @param source - The name to log the interpreter under.
+ * @param log - The channel to log why no interpreter was returned.
+ * @param getPath - Gets the interpreter path from the extension's exports.
+ * @returns The interpreter candidate, or an empty list if unavailable.
  */
-async function isInPath(
-    executable: string,
-    envPath: string,
-): Promise<boolean> {
-    const pathSplit = envPath.split(path.delimiter) || [];
-    for (const pathDir of pathSplit) {
-        const testPath = path.join(pathDir, executable);
-
-        try {
-            const fsStat = await fs.promises.stat(testPath);
-            if (fsStat.isFile()) {
-                return true;
-            }
-        }
-        catch (e) {
-            continue;
-        }
+async function getExtensionInterpreter(
+    id: string,
+    source: string,
+    log: vscode.LogOutputChannel,
+    getPath: (api: any) => Promise<string | undefined>,
+): Promise<Candidate[]> {
+    const ext = vscode.extensions.getExtension(id);
+    if (!ext) {
+        log.info(`  ${source}: not installed`);
+        return [];
     }
-    return false;
+    try {
+        const python = await getPath(await ext.activate());
+        if (!python) {
+            log.info(`  ${source}: no selected interpreter available from its API`);
+            return [];
+        }
+        return [{ source, python }];
+    } catch (e) {
+        log.warn(`  ${source}: failed to get the selected interpreter: ${e}`);
+        return [];
+    }
 }
