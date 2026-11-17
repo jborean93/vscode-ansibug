@@ -2,15 +2,17 @@ import * as vscode from 'vscode';
 
 import {
     AnsibleDebugConfigurationProvider,
+    AnsiblePlaybookCodeLensProvider,
     DebuggerManager,
     DebuggerCommands,
     createAnsibleDebugAdapter,
+    setPlaybookContext,
 } from "./debugger";
 
 export function activate(context: vscode.ExtensionContext) {
     console.log('Starting ansibug extension');
 
-    const debuggerManager = new DebuggerManager();
+    const debuggerManager = new DebuggerManager(context.workspaceState);
     const log = vscode.window.createOutputChannel("Ansibug", { log: true });
     context.subscriptions.push(log);
     context.subscriptions.push(
@@ -72,6 +74,38 @@ export function activate(context: vscode.ExtensionContext) {
             }
         )
     );
+
+    const codeLensProvider = new AnsiblePlaybookCodeLensProvider();
+    context.subscriptions.push(
+        vscode.commands.registerCommand(
+            DebuggerCommands.DEBUG_PLAYBOOK,
+            (uri?: vscode.Uri) => debuggerManager.debugPlaybook(uri, false)
+        ),
+        vscode.commands.registerCommand(
+            DebuggerCommands.DEBUG_PLAYBOOK_WITH_ARGS,
+            (uri?: vscode.Uri) => debuggerManager.debugPlaybook(uri, true)
+        ),
+        vscode.commands.registerCommand(
+            DebuggerCommands.CLEAR_PLAYBOOK_ARGS,
+            () => debuggerManager.clearPlaybookArgs()
+        ),
+        vscode.commands.registerCommand(
+            DebuggerCommands.SAVE_PLAYBOOK_LAUNCH_CONFIG,
+            (uri?: vscode.Uri) => debuggerManager.savePlaybookLaunchConfig(uri)
+        ),
+        codeLensProvider,
+        vscode.languages.registerCodeLensProvider(
+            [{ language: "ansible", scheme: "file" }, { language: "yaml", scheme: "file" }],
+            codeLensProvider
+        ),
+        vscode.window.onDidChangeActiveTextEditor(setPlaybookContext),
+        vscode.workspace.onDidChangeTextDocument((e) => {
+            if (e.document === vscode.window.activeTextEditor?.document) {
+                setPlaybookContext(vscode.window.activeTextEditor);
+            }
+        }),
+    );
+    setPlaybookContext(vscode.window.activeTextEditor);
 }
 
 export function deactivate() { }

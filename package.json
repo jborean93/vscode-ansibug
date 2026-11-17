@@ -39,6 +39,58 @@
         "language": "yaml"
       }
     ],
+    "commands": [
+      {
+        "command": "ansibug.debugPlaybook",
+        "title": "Debug Ansible Playbook",
+        "category": "Ansibug",
+        "icon": "$(debug-alt)"
+      },
+      {
+        "command": "ansibug.debugPlaybookWithArgs",
+        "title": "Debug Ansible Playbook with Arguments...",
+        "category": "Ansibug",
+        "icon": "$(debug-alt)"
+      },
+      {
+        "command": "ansibug.clearPlaybookArgs",
+        "title": "Clear Saved Ansible Playbook Arguments",
+        "category": "Ansibug"
+      },
+      {
+        "command": "ansibug.savePlaybookLaunchConfig",
+        "title": "Save Ansible Playbook Arguments as Launch Configuration",
+        "category": "Ansibug"
+      }
+    ],
+    "menus": {
+      "editor/title/run": [
+        {
+          "command": "ansibug.debugPlaybook",
+          "when": "ansibug.isPlaybook",
+          "group": "navigation@1"
+        },
+        {
+          "command": "ansibug.debugPlaybookWithArgs",
+          "when": "ansibug.isPlaybook",
+          "group": "navigation@2"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "ansibug.debugPlaybook",
+          "when": "ansibug.isPlaybook"
+        },
+        {
+          "command": "ansibug.debugPlaybookWithArgs",
+          "when": "ansibug.isPlaybook"
+        },
+        {
+          "command": "ansibug.savePlaybookLaunchConfig",
+          "when": "ansibug.isPlaybook"
+        }
+      ]
+    },
     "configuration": [
       {
         "title": "Ansibug",
@@ -73,6 +125,13 @@
             "default": null,
             "markdownDescription": "Path to a directory to store temporary files like the launch script for each playbook. This directory must be writable and not have NOEXEC to work. Leave blank to use the system temporary directory.",
             "order": 3
+          },
+          "ansibug.showCodeLens": {
+            "type": "boolean",
+            "scope": "resource",
+            "default": true,
+            "markdownDescription": "Show the `Debug` and `Debug with Args...` actions at the top of Ansible playbooks.",
+            "order": 4
           }
         }
       }
@@ -293,7 +352,8 @@
     "mocha": "^12.0.3",
     "ovsx": "^1.4.0",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.73.0"
+    "typescript-eslint": "^8.73.0",
+    "yaml": "^2.9.1"
   },
   "overrides": {
     "glob": "$glob",
