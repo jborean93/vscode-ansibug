@@ -2,6 +2,11 @@
 
 All notable changes to the "ansibug" extension will be documented in this file.
 
+## 0.3.0 - TBD
+
++ Bumped the minimum VS Code version to `1.100.0`
++ Updated the development dependencies
+
 ## 0.2.0 - 2025-02-24
 
 + Added the extension option `ansibug.tempDir` to control the temporary directory used to store the Ansible launch script

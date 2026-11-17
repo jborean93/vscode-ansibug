@@ -8,3 +8,4 @@ src/
 tsconfig.json
 **/*.map
 **/*.ts
+eslint.config.mjs
