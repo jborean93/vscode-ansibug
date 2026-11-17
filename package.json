@@ -292,5 +292,9 @@
     "ovsx": "^1.4.0",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.73.0"
+  },
+  "overrides": {
+    "glob": "$glob",
+    "minimatch": "^11.0.9"
   }
 }
