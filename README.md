@@ -27,3 +27,11 @@ This extension contributes the following settings:
 + `ansibug.logLevel`: The logging level to configure for the debug server
 
 This extension will also use the setting `ansible.python.interpreterPath` set by the official `vscode-ansible` extension as a fallback value for `ansibug.interpreterPath`.
+Both settings support `${workspaceFolder}`, and a relative path is resolved from the workspace folder.
+
+If neither setting is set, the first of these interpreters that can run `ansibug` is used:
+
++ The interpreter selected in the [Python Environments](https://marketplace.visualstudio.com/items?itemName=ms-python.vscode-python-envs) extension, if installed
++ The interpreter selected in the [Python](https://marketplace.visualstudio.com/items?itemName=ms-python.python) extension, if installed
++ A `.venv` or `venv` virtual environment in the workspace folder
++ `python3` or `python` from `PATH`
