@@ -2,7 +2,7 @@
 
 All notable changes to the "ansibug" extension will be documented in this file.
 
-## 0.3.0 - TBD
+## 0.3.0 - 2026-11-17
 
 + Bumped the minimum VS Code version to `1.100.0`
 + Updated the development dependencies
