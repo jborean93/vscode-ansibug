@@ -9,16 +9,115 @@ import {
     findVenvPythons,
     resolvePython,
 } from "./python";
+import { isPlaybook, splitArgs } from "./playbook";
 
 export class DebuggerCommands {
     public static readonly PICK_ANSIBLE_PLAYBOOK =
         "ansibug.pickAnsiblePlaybook";
     public static readonly PICK_ANSIBLE_PROCESS =
         "ansibug.pickAnsibleProcess";
+    public static readonly DEBUG_PLAYBOOK =
+        "ansibug.debugPlaybook";
+    public static readonly DEBUG_PLAYBOOK_WITH_ARGS =
+        "ansibug.debugPlaybookWithArgs";
+    public static readonly CLEAR_PLAYBOOK_ARGS =
+        "ansibug.clearPlaybookArgs";
+    public static readonly SAVE_PLAYBOOK_LAUNCH_CONFIG =
+        "ansibug.savePlaybookLaunchConfig";
 }
 
+/** Context key set when the active editor is a playbook. */
+export const IS_PLAYBOOK_CONTEXT = "ansibug.isPlaybook";
+
 export class DebuggerManager {
-    constructor() { }
+    constructor(private readonly state: vscode.Memento) { }
+
+    /**
+     * Starts debugging a playbook without a launch configuration.
+     * @param uri - The playbook, defaults to the active editor file.
+     * @param promptArgs - Prompt for the ansible-playbook arguments, defaulting
+     * to the last ones used for this playbook.
+     */
+    public async debugPlaybook(uri: vscode.Uri | undefined, promptArgs: boolean): Promise<void> {
+        uri = this.playbookUri(uri);
+        const key = `playbookArgs:${uri.toString()}`;
+        let args = "";
+        if (promptArgs) {
+            const value = await vscode.window.showInputBox({
+                title: `Debug ${path.basename(uri.fsPath)} with Arguments`,
+                prompt: "Arguments for ansible-playbook, excluding the playbook",
+                placeHolder: "-i inventory.ini -e key=value --check",
+                value: this.state.get<string>(key, ""),
+                validateInput: (v) => {
+                    try {
+                        splitArgs(v);
+                        return undefined;
+                    } catch (e) {
+                        return (e as Error).message;
+                    }
+                },
+            });
+            if (value === undefined) {
+                return;
+            }
+            args = value;
+            await this.state.update(key, value);
+        }
+
+        const folder = vscode.workspace.getWorkspaceFolder(uri);
+        await vscode.debug.startDebugging(folder, {
+            type: "ansible",
+            request: "launch",
+            name: `Ansibug: ${path.basename(uri.fsPath)}`,
+            playbook: uri.fsPath,
+            args: splitArgs(args),
+            cwd: folder?.uri.fsPath ?? path.dirname(uri.fsPath),
+        });
+    }
+
+    /**
+     * Adds a launch configuration for the playbook with the last arguments
+     * used by debugPlaybook.
+     * @param uri - The playbook, defaults to the active editor file.
+     */
+    public async savePlaybookLaunchConfig(uri: vscode.Uri | undefined): Promise<void> {
+        uri = this.playbookUri(uri);
+        const folder = vscode.workspace.getWorkspaceFolder(uri);
+        if (!folder) {
+            throw new Error("The playbook must be in a workspace folder to save a launch configuration");
+        }
+        const name = `Ansibug: ${path.basename(uri.fsPath)}`;
+        const launch = vscode.workspace.getConfiguration("launch", folder.uri);
+        const configs = launch.get<vscode.DebugConfiguration[]>("configurations", []);
+        await launch.update("configurations", [...configs, {
+            name: name,
+            type: "ansible",
+            request: "launch",
+            playbook: `\${workspaceFolder}/${path.relative(folder.uri.fsPath, uri.fsPath).split(path.sep).join("/")}`,
+            args: splitArgs(this.state.get<string>(`playbookArgs:${uri.toString()}`, "")),
+            cwd: "${workspaceFolder}",
+        }], vscode.ConfigurationTarget.WorkspaceFolder);
+        vscode.window.showInformationMessage(`Added launch configuration '${name}'`);
+    }
+
+    /**
+     * Removes the arguments remembered by debugPlaybook for all playbooks.
+     */
+    public async clearPlaybookArgs(): Promise<void> {
+        const keys = this.state.keys().filter((k) => k.startsWith("playbookArgs:"));
+        for (const key of keys) {
+            await this.state.update(key, undefined);
+        }
+        vscode.window.showInformationMessage(`Cleared saved arguments for ${keys.length} playbook(s)`);
+    }
+
+    private playbookUri(uri: vscode.Uri | undefined): vscode.Uri {
+        uri ??= vscode.window.activeTextEditor?.document.uri;
+        if (!uri) {
+            throw new Error("Open an Ansible playbook to debug");
+        }
+        return uri;
+    }
 
     /**
      * Prompt the user for a playbook filename.
@@ -119,6 +218,57 @@ export class AnsibleDebugConfigurationProvider
 
         return config;
     }
+}
+
+export class AnsiblePlaybookCodeLensProvider implements vscode.CodeLensProvider, vscode.Disposable {
+    private readonly changed = new vscode.EventEmitter<void>();
+    private readonly configListener = vscode.workspace.onDidChangeConfiguration((e) => {
+        if (e.affectsConfiguration("ansibug.showCodeLens")) {
+            this.changed.fire();
+        }
+    });
+    readonly onDidChangeCodeLenses = this.changed.event;
+
+    dispose(): void {
+        this.configListener.dispose();
+        this.changed.dispose();
+    }
+
+    provideCodeLenses(document: vscode.TextDocument): vscode.CodeLens[] {
+        if (
+            !vscode.workspace.getConfiguration("ansibug", document.uri).get("showCodeLens", true) ||
+            !isPlaybook(document.getText())
+        ) {
+            return [];
+        }
+        const range = new vscode.Range(0, 0, 0, 0);
+        return [
+            new vscode.CodeLens(range, {
+                title: "$(debug-alt) Debug",
+                command: DebuggerCommands.DEBUG_PLAYBOOK,
+                arguments: [document.uri],
+            }),
+            new vscode.CodeLens(range, {
+                title: "Debug with Args...",
+                command: DebuggerCommands.DEBUG_PLAYBOOK_WITH_ARGS,
+                arguments: [document.uri],
+            }),
+        ];
+    }
+}
+
+/**
+ * Sets the playbook context key for the editor title debug buttons.
+ * @param editor - The active editor.
+ */
+export function setPlaybookContext(editor: vscode.TextEditor | undefined): void {
+    const doc = editor?.document;
+    vscode.commands.executeCommand(
+        "setContext",
+        IS_PLAYBOOK_CONTEXT,
+        doc?.uri.scheme === "file" &&
+        (doc.languageId === "ansible" || doc.languageId === "yaml") &&
+        isPlaybook(doc.getText()));
 }
 
 /**

@@ -8,6 +8,10 @@ It can set breakpoints through Ansible playbook and task files and step through 
 
 ![](images/set_breakpoint.gif)
 
+A playbook can be debugged without a launch configuration through the `Debug` and `Debug with Args...` actions shown above the playbook and in the editor title run menu.
+`Debug with Args...` prompts for the `ansible-playbook` arguments, like `-i inventory.ini -e key=value`, and remembers them for that playbook.
+Use `Ansibug: Save Ansible Playbook Arguments as Launch Configuration` to add them to `launch.json`, or `Ansibug: Clear Saved Ansible Playbook Arguments` to forget them.
+
 See the [ansibug documentation](https://jborean93.github.io/ansibug/) for more information on how this works with Ansible.
 
 ## Requirements
@@ -25,6 +29,7 @@ This extension contributes the following settings:
 + `ansibug.interpreterPath`: Path to the `python`/`python3` executable where Ansible and `ansibug` is installed
 + `ansibug.logFile`: Path to a log file to store any logging information during a run
 + `ansibug.logLevel`: The logging level to configure for the debug server
++ `ansibug.showCodeLens`: Show the `Debug` and `Debug with Args...` actions at the top of playbooks, defaults to `true`
 
 This extension will also use the setting `ansible.python.interpreterPath` set by the official `vscode-ansible` extension as a fallback value for `ansibug.interpreterPath`.
 Both settings support `${workspaceFolder}`, and a relative path is resolved from the workspace folder.
