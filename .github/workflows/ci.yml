@@ -3,58 +3,99 @@ on:
   push:
     branches:
     - main
+    tags:
+    # A version tag also drafts its GitHub release with the vsix; publishing that draft publishes to the
+    # marketplaces (publish.yml). Tag with the package.json version, as the build checks they match.
+    #   TAG="v$(node -p 'require("./package.json").version')" && git tag -a "$TAG" -m "$TAG" && git push origin "$TAG"
+    - 'v*'
 
   pull_request:
     branches:
     - main
 
-  release:
-    types:
-    - published
+permissions: {}
 
 jobs:
   build:
     name: build extension
-
     runs-on: ubuntu-latest
     permissions:
-      contents: write  # Needed for GitHub release asset task
+      contents: read  # Repo checkout
 
     steps:
-    - uses: actions/checkout@v4
-
-    - uses: actions/setup-node@v4
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
-        node-version: 18
+        persist-credentials: false
+
+    - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      with:
+        node-version: 24
+        cache: npm
 
     - name: Install the dependencies
-      run: npm i
+      run: npm ci
 
-    - name: Install vsce
-      run: npm i -g @vscode/vsce ovsx
+    - name: Lint
+      run: npm run lint
+
+    - name: Verify tag matches package version
+      if: startsWith(github.ref, 'refs/tags/v')
+      run: |
+        PACKAGE_VERSION="$(node -p 'require("./package.json").version')"
+        if [ "${GITHUB_REF_NAME}" != "v${PACKAGE_VERSION}" ]; then
+          echo "::error::Tag ${GITHUB_REF_NAME} does not match package version ${PACKAGE_VERSION}"
+          exit 1
+        fi
 
     - name: build vsix
-      run: vsce package --out ansibug.vsix
+      run: mkdir dist && npx vsce package --out dist/
 
-    - uses: actions/upload-artifact@v4
+    - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
       with:
         name: vsix
-        path: ansibug.vsix
+        path: dist/
+        if-no-files-found: error
 
-    - name: Upload vsix as release asset
-      if: startsWith(github.event.release.tag_name, 'v')
-      uses: softprops/action-gh-release@v2
+  draft:
+    name: Draft release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # Create the draft release
+      id-token: write  # Sigstore signing certificate, for the attestations
+      attestations: write  # Store the attestations
+      artifact-metadata: write  # The attestations' storage records
+
+    steps:
+    - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
       with:
-        files: ansibug.vsix
+        name: vsix
+        path: dist/
 
-    - name: Publish to OpenVSX Registry
-      if: startsWith(github.event.release.tag_name, 'v')
-      run: ovsx publish ./ansibug.vsix
-      env:
-        OVSX_PAT: ${{ secrets.OPEN_VSX_TOKEN }}
+    # publish.yml only publishes a vsix these attestations show was built here from the tag.
+    - name: Attest the vsix
+      uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+      with:
+        subject-path: dist/*.vsix
 
-    - name: Publish to VSCode Marketplace
-      if: startsWith(github.event.release.tag_name, 'v')
-      run: vsce publish --packagePath ./ansibug.vsix
+    - name: Create or update the draft release
       env:
-        VSCE_PAT: ${{ secrets.VSCODE_MARKETPLACE_TOKEN }}
+        GH_TOKEN: ${{ github.token }}
+        TAG: ${{ github.ref_name }}
+      run: |
+        if is_draft="$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft 2>/dev/null)"; then
+          if [ "$is_draft" != "true" ]; then
+            echo "::error::Release $TAG is already published, its assets cannot be changed. Release a new version instead."
+            exit 1
+          fi
+
+          gh release upload "$TAG" dist/*.vsix --clobber --repo "$GITHUB_REPOSITORY"
+        else
+          gh release create "$TAG" dist/*.vsix \
+            --draft \
+            --verify-tag \
+            --title "$TAG" \
+            --generate-notes \
+            --repo "$GITHUB_REPOSITORY"
+        fi

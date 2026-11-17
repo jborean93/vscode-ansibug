@@ -1,0 +1,23 @@
+version: 2
+updates:
+- package-ecosystem: github-actions
+  directory: /
+  schedule:
+    interval: monthly
+  groups:
+    actions:
+      patterns: ["*"]
+
+- package-ecosystem: npm
+  directory: /
+  schedule:
+    interval: monthly
+  groups:
+    npm:
+      patterns: ["*"]
+  ignore:
+  # Must not exceed engines.vscode in package.json, bump both together manually.
+  - dependency-name: "@types/vscode"
+  # Matches the Node.js runtime of the minimum supported VS Code.
+  - dependency-name: "@types/node"
+    update-types: ["version-update:semver-major"]
